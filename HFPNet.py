@@ -1,8 +1,6 @@
 import os
 import torch.nn.functional as F
 import time
-
-import torch
 import torch.nn as nn
 from update.CFA import Crosslevel_Aggregation
 from update.DLFM import BiFusion_block
@@ -135,21 +133,21 @@ class HFPNet(nn.Module):
 
 
 def measure_fps(model, input_tensors, iterations=100, gpu_id=2):
-    torch.cuda.empty_cache()  # 清理显存
+    torch.cuda.empty_cache()  
     model.eval()
 
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    input_tensors = [t.to(device) for t in input_tensors]  # ✅ 逐个移动到 GPU
+    input_tensors = [t.to(device) for t in input_tensors]  
 
     with torch.no_grad():
-        for _ in range(10):  # 预热
-            _ = model(*input_tensors)  # ✅ 传入多个输入
+        for _ in range(10):  
+            _ = model(*input_tensors)  
 
     start_time = time.time()
     with torch.no_grad():
         for _ in range(iterations):
-            _ = model(*input_tensors)  # ✅ 传入多个输入
+            _ = model(*input_tensors)  
     end_time = time.time()
 
     fps = iterations / (end_time - start_time)
@@ -166,4 +164,4 @@ if __name__ == "__main__":
     flops, params = profile(model, (a, b))
     print('flops: ', flops, 'params: ', params)
     print('flops: %.2f G, params: %.2f M' % (flops / 1000000000.0, params / 1000000.0))
-    measure_fps(model, (a, b), gpu_id=2)  # ✅ 传入 (a, b) 作为输入
+    measure_fps(model, (a, b), gpu_id=2) 
