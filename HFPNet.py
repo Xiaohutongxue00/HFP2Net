@@ -2,11 +2,11 @@ import os
 import torch.nn.functional as F
 import time
 import torch.nn as nn
-from update.CFA import Crosslevel_Aggregation
-from update.DLFM import BiFusion_block
-from update.GSFM import FeatureFusionModule as FFM
-from update.MCCB import MultiScale_Contextual_Convolution_Block
-from update.aware_decoder import decoder_block,output_block
+from models.CFA import Crosslevel_Aggregation
+from models.DLFM import BiFusion_block
+from models.GSFM import FeatureFusionModule as FFM
+from models.MCCB import MultiScale_Contextual_Convolution_Block
+from models.aware_decoder import decoder_block,output_block
 
 from utlis.pvtv2_encoder import pvt_v2_b1
 from utlis.pvtv2_encoder import pvt_v2_b2
