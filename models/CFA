@@ -1,0 +1,84 @@
+import torch
+from torch import nn
+import torch.nn.functional as F
+
+
+class GAP(nn.Module):
+    def __init__(self, int_channels, r=16):
+        super(GAP, self).__init__()
+        out_channels = int(int_channels // r)
+        # global_att
+        self.global_att = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(int_channels, out_channels, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, int_channels, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(int_channels)
+        )
+
+        self.sig = nn.Sigmoid()
+
+    def forward(self, x):
+        xg = self.global_att(x)
+        wei = self.sig(xg)
+        return wei
+
+class Crosslevel_Aggregation(nn.Module):
+    def __init__(self, num_channels,int_channels, ratio=8):
+        super(Crosslevel_Aggregation, self).__init__()
+
+        self.conv = nn.Conv2d(int_channels, num_channels,kernel_size=1,stride=1)
+        self.sa_conv = nn.Conv2d(1, 1, kernel_size=1, stride=1)
+        self.SA_Enhance = SpatialAttention()
+        self.ca = ChannelAttention(int_channels)
+    def forward(self, in1, in2=None, in3=None):
+        if in2 !=None and in3 !=None:
+            in1 = F.interpolate(in1, size=in2.size()[2:],mode='bilinear')
+            in3 = F.interpolate(in3, size=in2.size()[2:], mode='bilinear')
+
+        elif in2!=None and in3==None:
+            in2 = F.interpolate(in2, size=in1.size()[2:],mode='bilinear')
+            in3 = in1
+
+
+        x = torch.cat((in1, in2, in3), 1)
+        sa = self.SA_Enhance(x)
+        sa = self.sa_conv(sa)
+        out = self.ca(x.mul(sa))
+        out = self.conv(out) * sa
+
+        return out
+
+class ChannelAttention(nn.Module):
+    def __init__(self, in_planes, ratio=16):
+        super(ChannelAttention, self).__init__()
+        mip = min(8,in_planes // ratio)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        self.fc1 = nn.Conv2d(in_planes, mip, 1, bias=False)
+        self.relu1 = nn.ReLU()
+        self.fc2 = nn.Conv2d(mip, in_planes, 1, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+
+        ca = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
+        out = x * self.sigmoid(ca)
+        return out
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+
+        self.conv1 = nn.Conv2d(1, 1, kernel_size, padding=padding, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        x = max_out
+        x = self.conv1(x)
+        return self.sigmoid(x)
